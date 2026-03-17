@@ -1,5 +1,6 @@
+import os
 from fastapi import APIRouter, HTTPException, Depends
-from app.core.arduino import ArduinoInterface
+from app.core.arduino import ArduinoInterface, MockArduinoInterface
 from app.core.models import ArduinoData, UltrasonicDistance, MotionDetection, RFIDReader, SoilMoisture, IRReceiver
 from typing import Optional
 
@@ -9,7 +10,10 @@ router = APIRouter()
 # Global variable for the Arduino interface (simplest way to persist connection)
 # In a production app, you might use a dependency injection or a startup event.
 # On start, when ACM0 is not available, test for ACM2 and ACM3
-arduino = ArduinoInterface(port=["/dev/ttyACM0", "/dev/ttyACM1", "/dev/ttyACM2", "/dev/ttyACM3"], baud=9600)
+if os.getenv("TEST_MODE") == "true":
+    arduino = MockArduinoInterface()
+else:
+    arduino = ArduinoInterface(port=["/dev/ttyACM0", "/dev/ttyACM1", "/dev/ttyACM2", "/dev/ttyACM3"], baud=9600)
 
 def get_arduino():
     """Dependency that ensures the Arduino is connected."""

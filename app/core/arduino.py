@@ -3,8 +3,10 @@ import json
 import logging
 import threading
 import time
+import random
+from datetime import datetime
 from typing import Optional
-from app.core.models import ArduinoData
+from app.core.models import ArduinoData, Sensors, UltrasonicDistance, MotionDetection, RFIDReader, SoilMoisture, IRReceiver
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -133,6 +135,60 @@ class ArduinoInterface:
     def read_and_parse(self) -> Optional[ArduinoData]:
         """Return the latest parsed ArduinoData object."""
         return self.latest_data
+
+class MockArduinoInterface(ArduinoInterface):
+    def __init__(self, port: str | list[str] = "MOCK", baud: int = 9600, timeout: float = 1.0):
+        super().__init__(port, baud, timeout)
+        self.current_port = "MOCK"
+
+    def connect(self):
+        """Simulate connecting to a mock Arduino."""
+        logger.info("Connected to Mock Arduino")
+        self.start_monitoring()
+        return None
+
+    def disconnect(self):
+        """Simulate disconnecting from a mock Arduino."""
+        self.stop_monitoring()
+        logger.info("Disconnected from Mock Arduino")
+
+    def _monitor_loop(self):
+        """Continuously generate mock data and update latest_data."""
+        while not self._stop_event.is_set():
+            try:
+                # Generate realistic mock data
+                mock_data = ArduinoData(
+                    device="MockArduinoUno",
+                    timestamp=datetime.now(),
+                    sensors=Sensors(
+                        ultrasonic=UltrasonicDistance(
+                            out_of_range=random.choice([True, False]),
+                            echo_duration_us=random.randint(500, 30000),
+                            distance_in_cm=round(random.uniform(2.0, 400.0), 2)
+                        ),
+                        pir=MotionDetection(
+                            motion=random.choice([True, False])
+                        ),
+                        rfid=RFIDReader(
+                            card_present=random.choice([True, False]),
+                            uid=f"{random.randint(100, 999)}:{random.randint(100, 999)}:{random.randint(100, 999)}:{random.randint(100, 999)}",
+                            card_type="Mifare"
+                        ),
+                        soil_moisture=SoilMoisture(
+                            raw=random.randint(300, 800)
+                        ),
+                        ir_receiver=IRReceiver(
+                            received=random.choice([True, False]),
+                            code=hex(random.getrandbits(32))
+                        )
+                    )
+                )
+                self.latest_data = mock_data
+                logger.debug(f"Updated mock Arduino data: {self.latest_data.device}")
+                time.sleep(1.0)  # Update every second
+            except Exception as e:
+                logger.error(f"Error in mock monitor loop: {e}")
+                time.sleep(1.0)
 
 def parse_arduino_response(json_str: str) -> ArduinoData:
     """Parse the Arduino JSON response into an ArduinoData object."""
